@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SVGステッカー工房 — Single HTML</title>
+<meta name="description" content="テキスト＋絵文字で丸ステッカーSVGを生成、PNG書き出しもできる単一HTMLアプリ">
+<style>
+  :root{
+    --bg:#0e1015; --panel:#12141b; --card:rgba(255,255,255,.05);
+    --border:rgba(255,255,255,.12); --text:#e9ecf5; --muted:#aeb3c2; --acc:#7aa7ff;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; color:var(--text); background:
+      radial-gradient(1200px 600px at 10% -10%, #1b2240 0%, #0e1015 55%, #0a0b0e 100%);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Hiragino Kaku Gothic ProN",
+      "Noto Sans JP","Segoe UI", Roboto, "Helvetica Neue", Arial,
+      "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji";
+    display:grid; grid-template-rows:auto 1fr auto; min-height:100dvh;
+  }
+  header{
+    padding:18px 22px; display:flex; justify-content:space-between; align-items:center;
+    border-bottom:1px solid var(--border); backdrop-filter: blur(10px);
+  }
+  header .title{ display:flex; align-items:center; gap:12px; }
+  .title .logo{
+    width:32px; height:32px; border-radius:50%;
+    background: conic-gradient(from 210deg, #7aa7ff, #8ef0c7, #febc6b, #7aa7ff);
+    box-shadow: 0 0 0 1px rgba(255,255,255,.3) inset, 0 6px 18px rgba(122,167,255,.35);
+  }
+  .title h1{ font-size:16px; margin:0; letter-spacing:.3px }
+  .pill{
+    font-size:12px; color:#cfd3dc; padding:6px 10px; border-radius:999px;
+    background: rgba(255,255,255,.06); border:1px solid var(--border);
+  }
+  main{
+    padding:20px; display:grid; gap:18px; grid-template-columns: 1.1fr 1fr;
+  }
+  @media (max-width:1000px){ main{ grid-template-columns:1fr; } }
+  .card{
+    background: var(--card); border:1px solid var(--border); border-radius:18px; padding:16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.05);
+    backdrop-filter: blur(12px);
+  }
+  .card h2{ margin:4px 0 12px; font-size:18px; color:#f1f4fb }
+  label{ font-size:12px; color:var(--muted); display:block; margin:10px 0 6px }
+  input[type="text"], input[type="number"], input[type="color"], select, textarea{
+    width:100%; color:var(--text); background: rgba(255,255,255,.04);
+    border:1px solid var(--border); border-radius:12px; padding:10px 12px; outline:none;
+  }
+  textarea{ min-height:84px; resize:vertical }
+  input[type="range"]{ width:100% }
+  .row{ display:grid; grid-template-columns:1fr 1fr; gap:10px }
+  .btns{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px }
+  button{
+    border:1px solid var(--border);
+    background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+    color:var(--text); border-radius:12px; padding:10px 14px; cursor:pointer;
+  }
+  button:hover{ border-color: rgba(255,255,255,.25) }
+  .primary{ border-color: rgba(122,167,255,.6); box-shadow: 0 0 0 1px rgba(122,167,255,.25) inset }
+  .muted{ color:var(--muted) }
+  .hint{ font-size:12px; color:var(--muted); margin-top:6px }
+  /* プレビュー枠（チェッカーで透過表現） */
+  .preview{
+    border-radius:16px; overflow:hidden; position:relative; border:1px solid var(--border);
+    background:
+      conic-gradient(from 45deg, #1a1d25 0 25%, #12141b 0 50%) 0 0/22px 22px;
+  }
+  .preview-inner{ padding:16px }
+  svg{ width:100%; height:auto; display:block }
+  /* ステッカー外周のダッシュ（カットライン）表示用 */
+  .legend{ display:flex; gap:8px; align-items:center; font-size:12px; color:#cfd3dc; }
+  footer{
+    padding:16px 22px; display:flex; justify-content:space-between; align-items:center;
+    border-top:1px solid var(--border); color:var(--muted);
+  }
+  .kbd{
+    padding:2px 6px; border:1px solid var(--border); border-radius:6px; font-size:12px;
+    background: rgba(255,255,255,.05)
+  }
+</style>
+</head>
+<body>
+  <header>
+    <div class="title">
+      <div class="logo" aria-hidden="true"></div>
+      <h1>SVGステッカー工房</h1>
+      <span class="pill">単一HTML / ライブラリ不要</span>
+    </div>
+    <div class="legend">
+      <span class="pill">SVG→PNG書き出し</span>
+    </div>
+  </header>
+
+  <main>
+    <!-- 左：エディタ -->
+    <section class="card" aria-label="エディタ">
+      <h2>🎨 デザイン</h2>
+      <div class="row">
+        <div>
+          <label>絵文字</label>
+          <input id="emoji" type="text" placeholder="例）🍡 / 🐈 / 🌿" maxlength="8" value="🍡">
+        </div>
+        <div>
+          <label>テキスト</label>
+          <input id="title" type="text" placeholder="例）DANGO">
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>絵文字サイズ（%）</label>
+          <input id="emojiSize" type="range" min="40" max="140" value="90">
+        </div>
+        <div>
+          <label>文字サイズ（%）</label>
+          <input id="textSize" type="range" min="40" max="140" value="80">
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>フォント</label>
+          <select id="font">
+            <option value='"Noto Sans JP", system-ui, sans-serif'>Noto Sans JP（ゴシック）</option>
+            <option value='"Hiragino Mincho ProN","Yu Mincho", serif'>明朝</option>
+            <option value='"SF Pro Display","Segoe UI", system-ui, sans-serif'>SF/Segoe</option>
+            <option value='"M PLUS 1p",system-ui,sans-serif'>M PLUS 1p</option>
+          </select>
+        </div>
+        <div>
+          <label>字間（letter-spacing）</label>
+          <input id="letter" type="range" min="-2" max="12" value="2">
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>ベース色①</label>
+          <input id="c1" type="color" value="#7aa7ff">
+        </div>
+        <div>
+          <label>ベース色②（グラデ）</label>
+          <input id="c2" type="color" value="#8ef0c7">
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>文字色</label>
+          <input id="tcolor" type="color" value="#ffffff">
+        </div>
+        <div>
+          <label>外周ライン（白）太さ</label>
+          <input id="outline" type="range" min="0" max="40" value="24">
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>サイズ（px）</label>
+          <input id="size" type="number" min="256" max="2048" step="64" value="1024">
+        </div>
+        <div>
+          <label>PNGスケール（×）</label>
+          <input id="scale" type="number" min="1" max="8" value="2">
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>カットライン表示</label>
+          <select id="cut">
+            <option value="on" selected>表示する</option>
+            <option value="off">表示しない</option>
+          </select>
+        </div>
+        <div>
+          <label>影（ドロップシャドウ）</label>
+          <select id="shadow">
+            <option value="soft" selected>やわらか</option>
+            <option value="none">なし</option>
+          </select>
+        </div>
+      </div>
+
+      <label>署名（右下/任意）</label>
+      <input id="credit" type="text" placeholder="@shimarin（空欄でオフ）">
+
+      <div class="btns">
+        <button id="random">ムードで配色ガチャ</button>
+        <button id="render" class="primary">プレビュー更新</button>
+        <button id="downloadPNG">⬇️ PNGダウンロード</button>
+        <button id="copyPNG">📋 PNGコピー</button>
+        <button id="downloadSVG">⬇️ SVGダウンロード</button>
+      </div>
+      <div class="hint">ヒント：テキストは短めが映えやすい。行を増やしたい時は <span class="kbd">Space</span> や <span class="kbd">-</span> でリズムを作るのも◎</div>
+    </section>
+
+    <!-- 右：プレビュー -->
+    <section class="card" aria-label="プレビュー">
+      <h2>🧪 プレビュー</h2>
+      <div class="preview">
+        <div class="preview-inner">
+          <svg id="sticker" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ステッカーのプレビュー">
+            <defs>
+              <linearGradient id="grad" x1="0" x2="1" y1="0" y2="1">
+                <stop offset="0%" stop-color="#7aa7ff"/>
+                <stop offset="100%" stop-color="#8ef0c7"/>
+              </linearGradient>
+              <filter id="drop" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur in="SourceAlpha" stdDeviation="18" result="blur"/>
+                <feOffset in="blur" dx="0" dy="16" result="off"/>
+                <feColorMatrix in="off" type="matrix"
+                  values="0 0 0 0 0
+                          0 0 0 0 0
+                          0 0 0 0 0
+                          0 0 0 .35 0" result="shadow"/>
+                <feBlend in="SourceGraphic" in2="shadow" mode="normal"/>
+              </filter>
+              <!-- うっすらノイズ -->
+              <filter id="noise">
+                <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" stitchTiles="stitch"/>
+                <feColorMatrix type="saturate" values="0"/>
+                <feComponentTransfer>
+                  <feFuncA type="table" tableValues="0 0 .08 0"/>
+                </feComponentTransfer>
+              </filter>
+            </defs>
+
+            <g id="g-sticker" filter="url(#drop)">
+              <circle id="base" cx="512" cy="512" r="410" fill="url(#grad)"/>
+              <circle id="halo" cx="512" cy="512" r="410" fill="none" stroke="#fff" stroke-width="24" opacity=".85"/>
+              <g filter="url(#noise)">
+                <rect x="102" y="102" width="820" height="820" fill="#000" opacity=".06"/>
+              </g>
+            </g>
+
+            <g id="g-content" text-anchor="middle" dominant-baseline="middle"
+               font-family='"Noto Sans JP","SF Pro Display","Segoe UI",system-ui,"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji"'
+               fill="#fff">
+              <text id="emojiText" x="512" y="430" font-size="420">🍡</text>
+              <text id="mainText" x="512" y="650" font-size="200" letter-spacing="2">DANGO</text>
+            </g>
+
+            <g id="g-credit" font-size="36" fill="#ffffff" opacity=".9"
+               font-family='"Noto Sans JP","SF Pro Display","Segoe UI",system-ui'>
+              <text id="creditText" x="760" y="840" text-anchor="end"></text>
+            </g>
+
+            <g id="g-cut" opacity=".8">
+              <circle cx="512" cy="512" r="450" fill="none" stroke="#ffffff" stroke-width="2" stroke-dasharray="10 10"/>
+            </g>
+          </svg>
+        </div>
+      </div>
+      <div class="hint">透過背景のため、PNGは周囲が透明になります（丸だけ残るよ）。</div>
+    </section>
+  </main>
+
+  <footer>
+    <div>Made with ❤️ / 単一HTML・外部ライブラリなし</div>
+    <div class="muted">保存した設定はブラウザに自動保存（localStorage）</div>
+  </footer>
+
+<script>
+(() => {
+  const $ = s => document.querySelector(s);
+  // UI要素
+  const el = {
+    emoji: $('#emoji'), title: $('#title'),
+    emojiSize: $('#emojiSize'), textSize: $('#textSize'),
+    font: $('#font'), letter: $('#letter'),
+    c1: $('#c1'), c2: $('#c2'), tcolor: $('#tcolor'),
+    outline: $('#outline'), size: $('#size'), scale: $('#scale'),
+    cut: $('#cut'), shadow: $('#shadow'),
+    credit: $('#credit'),
+    // Buttons
+    random: $('#random'), render: $('#render'),
+    dlPNG: $('#downloadPNG'), copyPNG: $('#copyPNG'), dlSVG: $('#downloadSVG'),
+    // SVG nodes
+    svg: $('#sticker'),
+    grad: $('#grad'), base: $('#base'), halo: $('#halo'),
+    gCut: $('#g-cut'), gSticker: $('#g-sticker'), drop: $('#drop'),
+    emojiText: $('#emojiText'), mainText: $('#mainText'),
+    creditText: $('#creditText'),
+  };
+
+  // 初期テキスト
+  el.title.value = 'DANGO';
+  // 設定の保存/復元
+  const persistKeys = ['emoji','title','emojiSize','textSize','font','letter','c1','c2','tcolor','outline','size','scale','cut','shadow','credit'];
+  function save(){
+    const data = {};
+    persistKeys.forEach(k => data[k] = el[k].value);
+    localStorage.setItem('sticker.settings', JSON.stringify(data));
+  }
+  function load(){
+    try{
+      const data = JSON.parse(localStorage.getItem('sticker.settings')||'{}');
+      persistKeys.forEach(k => { if(data[k]!==undefined) el[k].value = data[k]; });
+    }catch(e){}
+  }
+
+  // 配色ガチャ（ムードベース：落ち着き→元気）
+  function randomPalette(){
+    const mood = Math.random(); // 0-1
+    const h = Math.round(210 - mood*150); // ブルー→イエロー
+    const c1 = `hsl(${h} 80% 65%)`;
+    const c2 = `hsl(${(h+35)%360} 85% 55%)`;
+    el.c1.value = rgbToHex(cssColorToRgb(c1));
+    el.c2.value = rgbToHex(cssColorToRgb(c2));
+  }
+  function cssColorToRgb(css){
+    // 一時要素で計算
+    const tmp = document.createElement('div');
+    tmp.style.color = css; document.body.appendChild(tmp);
+    const rgb = getComputedStyle(tmp).color; document.body.removeChild(tmp);
+    const m = rgb.match(/(\d+),\s*(\d+),\s*(\d+)/);
+    return {r:+m[1], g:+m[2], b:+m[3]};
+  }
+  function rgbToHex({r,g,b}){
+    const h = n => ('0' + n.toString(16)).slice(-2);
+    return `#${h(r)}${h(g)}${h(b)}`;
+  }
+
+  // SVG更新
+  function update(){
+    // サイズ関連
+    const S = clamp(+el.size.value || 1024, 256, 2048);
+    el.svg.setAttribute('width', S);
+    el.svg.setAttribute('height', S);
+
+    // グラデーション
+    el.grad.children[0].setAttribute('stop-color', el.c1.value);
+    el.grad.children[1].setAttribute('stop-color', el.c2.value);
+
+    // ベース円・外周
+    const outline = +el.outline.value;
+    el.halo.setAttribute('stroke-width', outline);
+    el.base.setAttribute('fill', 'url(#grad)');
+
+    // 影
+    if(el.shadow.value === 'none'){
+      el.gSticker.removeAttribute('filter');
+    }else{
+      el.gSticker.setAttribute('filter', 'url(#drop)');
+    }
+
+    // 中央コンテンツ
+    const tColor = el.tcolor.value;
+    const fontFamily = el.font.value;
+    const letter = +el.letter.value;
+
+    // 絵文字
+    const emoji = (el.emoji.value || '🙂').slice(0,8);
+    el.emojiText.textContent = emoji;
+    el.emojiText.setAttribute('fill', tColor);
+    el.emojiText.setAttribute('font-size', Math.round(420 * (+el.emojiSize.value/100)));
+    el.emojiText.setAttribute('font-family', `"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",${fontFamily}`);
+
+    // テキスト
+    const text = (el.title.value || '').trim() || 'STICKER';
+    el.mainText.textContent = text;
+    el.mainText.setAttribute('fill', tColor);
+    el.mainText.setAttribute('font-family', fontFamily);
+    el.mainText.setAttribute('font-size', Math.round(200 * (+el.textSize.value/100)));
+    el.mainText.setAttribute('letter-spacing', letter);
+
+    // 署名
+    const credit = (el.credit.value || '').trim();
+    el.creditText.textContent = credit;
+
+    // カットライン
+    if(el.cut.value === 'off'){ el.gCut.setAttribute('opacity', '0'); }
+    else { el.gCut.setAttribute('opacity', '.8'); }
+
+    save();
+  }
+
+  // PNG出力（SVG→Canvas→PNG）
+  function exportPNG(copy=false){
+    const scale = clamp(+el.scale.value || 2, 1, 8);
+    const S = clamp(+el.size.value || 1024, 256, 2048);
+    const svgString = getSVGString();
+    const blob = new Blob([svgString], {type:'image/svg+xml'});
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = S*scale; canvas.height = S*scale;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.drawImage(img, 0,0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(async (pngBlob) => {
+        if(copy){
+          try{
+            await navigator.clipboard.write([new ClipboardItem({'image/png': pngBlob})]);
+            alert('PNGをクリップボードへコピーしました ✨');
+          }catch(e){ alert('コピーに失敗しました（ブラウザ未対応の可能性）'); }
+        }else{
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(pngBlob);
+          a.download = 'sticker.png';
+          a.click();
+          URL.revokeObjectURL(a.href);
+        }
+      }, 'image/png', 0.95);
+    };
+    img.src = url;
+  }
+
+  // SVG保存
+  function exportSVG(){
+    const svgString = getSVGString();
+    const blob = new Blob([svgString], {type:'image/svg+xml'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'sticker.svg';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  function getSVGString(){
+    // 現在のSVGをシリアライズ（XML宣言付き）
+    update(); // 念のため反映
+    const s = new XMLSerializer().serializeToString(el.svg);
+    return `<?xml version="1.0" encoding="UTF-8"?>\n` + s;
+  }
+
+  function clamp(n, a, b){ return Math.max(a, Math.min(b, n)); }
+
+  // イベント
+  const inputs = ['input','change'];
+  inputs.forEach(ev=>{
+    ['emoji','title','emojiSize','textSize','font','letter','c1','c2','tcolor','outline','size','scale','cut','shadow','credit']
+      .forEach(id => el[id].addEventListener(ev, update));
+  });
+  el.random.addEventListener('click', () => { randomPalette(); update(); });
+  el.render.addEventListener('click', update);
+  el.dlPNG.addEventListener('click', ()=> exportPNG(false));
+  el.copyPNG.addEventListener('click', ()=> exportPNG(true));
+  el.dlSVG.addEventListener('click', exportSVG);
+
+  // 初期
+  load(); update();
+})();
+</script>
+</body>
+</html>
